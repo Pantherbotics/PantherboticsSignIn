@@ -29,6 +29,7 @@ class SessionTracker:
         self.db = Database()
         self.generateSessions()
         
+        
 
     def studentScanEvent(self, studentID, eventTime = None):
         #process student login / logout. returns false if student is not in existing database
@@ -41,24 +42,12 @@ class SessionTracker:
         if not studentID in self.STATE.keys():
             self.rescanStudents()
 
-        if studentID in self.STATE.keys():
-            currentTime = self.STATE[studentID]['timestamp']
-            if currentTime == None: currentTime = datetime.datetime.fromtimestamp(0)
-            if self.roundTime(currentTime, TIME_INCREMENTS) == reTime:
-                self.logger.debug('Duplicate scan ignored %s %s %s', studentID, currentTime.isoformat(), eventTime.isoformat())
-                return studentPresent
-
         if studentID in self.STATE.keys():      
-            currentState = self.STATE[studentID]['state']  
-            newState = not currentState    
             self.db.appendEventLog(studentID, eventTime)
-            self.STATE[studentID].update({'timestamp': eventTime, 
-                                          'state': newState})
             self.logger.info('Scan event %s %s', studentID, eventTime.isoformat())
             self.generateSessions()
 
 
-        #pprint.pprint(self.STATE)        
         return studentPresent
 
     def roundTime(self, dt=None, dateDelta=datetime.timedelta(minutes=1)):
@@ -73,30 +62,29 @@ class SessionTracker:
     def dateFromISO(self, datestr):
         return datetime.datetime.strptime( datestr, "%Y-%m-%dT%H:%M:%S.%f" )
 
+    def getCurrentState(self, studentID):
+        if not studentID in self.STATE.keys(): return None
+        else: return self.STATE[studentID]
+
     def rescanStudents(self):
         for studentID in self.db.listStudents():
+            if studentID in self.STATE.keys(): continue
             log = self.db.getEventsFor(studentID)
+            sess =self.db.getLatestSessionFor(studentID)
             if len(log) == 0:
                 tStamp = None
             else:
                 tStamp = log[-1]['timestamp']
 
-            data = {int(studentID):{'state': False,
+            if sess == None:
+                status = None
+            else:
+                status = sess['status']
+            
+            data = {int(studentID):{'status': status,
                                     'timestamp': tStamp}}
             self.STATE.update(data)
-    
-    def isStudentSignedIn(self, studentID, dateRefrence=None, length=False):
-        if dateRefrence == None: dateRefrence = datetime.datetime.now()
-        log = self.db.getEventsFor(studentID)
-        if len(log) == 0: return False
-        if len(log) % 2 == 0: return False
-        for event in log:
-            eventLength = dateRefrence - event['timestamp']
-            if eventLength.total_seconds() > 24*60*60:       #Do not process events > 24h old
-                continue
-            else:
-                if length: return (True, eventLength)
-                else: return True
+
 
     def generateSessions(self):
         STATE = {}
@@ -140,7 +128,19 @@ class SessionTracker:
                 
 
             STATE.update({stID:{'status': newStatus, 'timestamp': timestamp, 'uuid': eventUUID}})
+        self.rescanStudents()
+        for sID, data in STATE.iteritems():
+            if data['status'] == 'scanin':
+                sessTimestamp = data['timestamp']
+                sessionLength = datetime.datetime.now() - sessTimestamp
+                if sessionLength.total_seconds() >= MAX_SESSION_LENGTH:
+                    backtimestamp = sessTimestamp.replace(hour=DEF_SESSION_END_HOUR, minute=DEF_SESSION_END_MINUTE, second=DEF_SESSION_END_SECOND)
+                    self.db.createSession(sID, sessTimestamp, backtimestamp, 'timeout', data['uuid'], None)
+                    STATE.update({stID:{'status': 'timeout', 'timestamp': backtimestamp}})
+                    self.logger.debug('Student %-18s (%s) Forgot to sign out. length: %s', self.db.STUDENTS[sID]['name'], sID, backtimestamp - sessTimestamp)
 
+            if sID in self.STATE.keys():
+                self.STATE[sID].update({'status':data['status'], 'timestamp': data['timestamp']})
 
     def isCurrentTimeInSession(self):
         now = datetime.datetime.now()
@@ -150,13 +150,6 @@ class SessionTracker:
 def consoleTrack():
     s = SessionTracker()
     while True:
-        st = s.db.listStudents()
-        for i in st:
-            da = s.isStudentSignedIn(i, length=True)
-            if  da == False:
-                print "%-8s %-20s Absent" % (i, s.db.STUDENTS[i]['name'])
-            else:
-                print "%-8s %-20s %s" % (i, s.db.STUDENTS[i]['name'], da[1])
         try:
             a = raw_input('#>')
             a = int(a)

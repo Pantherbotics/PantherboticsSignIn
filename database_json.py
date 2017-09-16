@@ -30,6 +30,7 @@ class Database:
         return os.path.isfile("%s%s.json"%(STUDENT_DIR, studentID))
     
     def createStudent(self, studentID, studentName):
+        studentID = int(studentID)
         stPath = "%s%s.json"%(STUDENT_DIR, studentID)
         student =  {'id': studentID,
                     'name': studentName}
@@ -46,8 +47,8 @@ class Database:
                  'uuid': uid}
         if not eventStatus == None:
             event.update({'status':eventStatus})
-        
-        self.EVENTS.append(event.copy())
+        self.EVENTS.append(dict(event))
+
         event.update({'timestamp': event['timestamp'].isoformat()})
 
         with open(eventPath, 'r') as fHandle:
@@ -124,6 +125,19 @@ class Database:
         with open(sessionFile, 'w') as fHandle:
             json.dump(data, fHandle, indent=4)
             fHandle.close()
+
+    def getNameFor(self, studentID):
+        if not studentID in self.STUDENTS: return None
+        return self.STUDENTS[studentID]['name']
+
+    def getLatestSessionFor(self, studentID):
+        try:
+            session = dict([s for s in self.SESSIONS if s['id'] == studentID][-1])
+            return session
+        except KeyError:
+            return None
+        except IndexError:
+            return None
 
 if __name__ == '__main__':
      d = Database()
