@@ -7,7 +7,7 @@ function zeroPad(str) {
 
 function updateClock(clockID) {
     tN = new Date()
-    str = zeroPad(tN.getHours()) + ":" + zeroPad(tN.getMinutes()) + ":" + zeroPad(tN.getSeconds()) + " |  " + (tN.getMonth() + 1) + "/" + tN.getDate() + "/" + tN.getFullYear()
+    str = zeroPad(tN.getHours()) + ":" + zeroPad(tN.getMinutes()) + ":" + zeroPad(tN.getSeconds()) + " " + (tN.getMonth() + 1) + "/" + tN.getDate() + "/" + tN.getFullYear()
     $("#" + clockID).text(str)
 }
 
