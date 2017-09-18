@@ -6,6 +6,8 @@ function zeroPad(str) {
     return ("00" + str).slice(-2)
 }
 
+TIMERS = {}
+
 function numberToTime(number) {
     var sec_num = parseInt(number, 10); // don't forget the second param
     var hours = Math.floor(sec_num / 3600);
@@ -40,7 +42,8 @@ function _createRowCallback(data) {
         state = data['state']['status']
         if (state == 'scanin') {
             currentDuration = "---"
-            setInterval(updateRowClock, 1000, studentID, scanDate)
+            var tm = setInterval(updateRowClock, 1000, studentID, scanDate)
+            TIMERS[studentID] = tm
             color = "table-success"
             updateTop = true
         } else if (state == 'timeout') {
@@ -79,6 +82,9 @@ function _createRowCallback(data) {
 }
 
 function redrawRow(studentID) {
+    studentID = parseInt(studentID, 10)
+    console.log("removed row: " + studentID)
+    clearInterval(TIMERS[studentID])
     $("#" + studentID + "-row").remove();
     createRow(studentID)
 }
