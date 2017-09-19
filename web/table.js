@@ -49,7 +49,7 @@ function _createRowCallback(data) {
         } else if (state == 'timeout') {
             color = "table-warning"
             currentDuration = "---"
-            updateTop = true
+                //updateTop = true
         } else {
             currentDuration = "---"
             color = "table-selected"
