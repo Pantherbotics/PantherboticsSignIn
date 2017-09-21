@@ -138,6 +138,7 @@ class Database:
             return None
         except IndexError:
             return None
+#END OF CLASS Database()
 
 if __name__ == '__main__':
      d = Database()

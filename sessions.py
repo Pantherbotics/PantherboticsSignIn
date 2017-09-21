@@ -10,12 +10,15 @@ import logging, datetime, pprint, time
 TIME_INCREMENTS = datetime.timedelta(minutes=5)
 
 #If a session is longer than this time, it is assumed that the person forgot to sign out
-MAX_SESSION_LENGTH = 57600
+MAX_HRS = 16
+MAX_MIN = 0
+MAX_SEC = 0
+MAX_SESSION_LENGTH = ((MAX_HRS*60) + MAX_MIN)*60 + MAX_SEC #S57600 seconds = 16hrs
 
 #If a session length ends up exceeding MAX_SESSION_LENGTH, their session will be closed at this tome (hour)
-DEF_SESSION_END_HOUR = 17
-DEF_SESSION_END_MINUTE = 0
-DEF_SESSION_END_SECOND = 0
+DEF_SESSION_END_HRS = 17
+DEF_SESSION_END_MIN = 0
+DEF_SESSION_END_SEC = 0
 
 #--------Database Selection--------
 from database_json import Database
@@ -30,11 +33,10 @@ class SessionTracker:
         self.generateSessions()
         
         
-
     def studentScanEvent(self, studentID, eventTime = None):
         #process student login / logout. returns false if student is not in existing database
-        studentPresent = self.db.isStudentInDatabase(studentID)
-        if not studentPresent: return studentPresent
+        priorStudent = self.db.isStudentInDatabase(studentID) #the name "studentPresent" implies "is the student present at the club?" not "is the student included in the database?" changed name to "priorStudent" for clarity
+        if not priorStudent: return False #Exit?
 
         if eventTime == None:  eventTime = datetime.datetime.now()
         reTime = self.roundTime(eventTime, TIME_INCREMENTS) 
@@ -47,8 +49,8 @@ class SessionTracker:
             self.logger.info('Scan event %s %s', studentID, eventTime.isoformat())
             self.generateSessions()
 
+        return True
 
-        return studentPresent
 
     def roundTime(self, dt=None, dateDelta=datetime.timedelta(minutes=1)):
         roundTo = dateDelta.total_seconds()
@@ -59,12 +61,15 @@ class SessionTracker:
         rounding = (seconds+roundTo/2) // roundTo * roundTo
         return dt + datetime.timedelta(0,rounding-seconds,-dt.microsecond)
 
+
     def dateFromISO(self, datestr):
         return datetime.datetime.strptime( datestr, "%Y-%m-%dT%H:%M:%S.%f" )
+
 
     def getCurrentState(self, studentID):
         if not studentID in self.STATE.keys(): return None
         else: return self.STATE[studentID]
+
 
     def rescanStudents(self):
         for studentID in self.db.listStudents():
@@ -105,7 +110,7 @@ class SessionTracker:
                 sessTimestamp = STATE[stID]['timestamp']
                 sessionLength = timestamp - sessTimestamp
                 if sessStatus == 'scanin' and sessionLength.total_seconds() >= MAX_SESSION_LENGTH:
-                    backtimestamp = sessTimestamp.replace(hour=DEF_SESSION_END_HOUR, minute=DEF_SESSION_END_MINUTE, second=DEF_SESSION_END_SECOND)
+                    backtimestamp = sessTimestamp.replace(hour=DEF_SESSION_END_HRS, minute=DEF_SESSION_END_MIN, second=DEF_SESSION_END_SEC)
                     registerTimeout = True
                     self.db.createSession(stID, sessTimestamp, backtimestamp, 'timeout', sessUUID, None)
                     STATE.update({stID:{'status': 'timeout', 'timestamp': backtimestamp}})
@@ -134,7 +139,7 @@ class SessionTracker:
                 sessTimestamp = data['timestamp']
                 sessionLength = datetime.datetime.now() - sessTimestamp
                 if sessionLength.total_seconds() >= MAX_SESSION_LENGTH:
-                    backtimestamp = sessTimestamp.replace(hour=DEF_SESSION_END_HOUR, minute=DEF_SESSION_END_MINUTE, second=DEF_SESSION_END_SECOND)
+                    backtimestamp = sessTimestamp.replace(hour=DEF_SESSION_END_HRS, minute=DEF_SESSION_END_MIN, second=DEF_SESSION_END_SEC)
                     self.db.createSession(sID, sessTimestamp, backtimestamp, 'timeout', data['uuid'], None)
                     STATE.update({stID:{'status': 'timeout', 'timestamp': backtimestamp}})
                     self.logger.debug('Student %-18s (%s) Forgot to sign out. length: %s', self.db.STUDENTS[sID]['name'], sID, backtimestamp - sessTimestamp)
@@ -142,29 +147,32 @@ class SessionTracker:
             if sID in self.STATE.keys():
                 self.STATE[sID].update({'status':data['status'], 'timestamp': data['timestamp']})
 
+
     def isCurrentTimeInSession(self):
         now = datetime.datetime.now()
         return now.hour >= SESSION_START_HOUR and now.hour <= SESSION_END_HOUR
-
+#END OF CLASS SessionTracker()
 
 def consoleTrack():
     s = SessionTracker()
-    while True:
+    error = False
+    while not error: #this will continue until student scan event fails AFTER adding a new student, which should never happen.
         try:
-            a = raw_input('#>')
-            a = int(a)
+            inputID = raw_input('#>')
+            inputID = int(inputID)
         except KeyboardInterrupt:
             exit(0)
         except ValueError:
             print "Error: Invalid Input (cannot convert to int)"
-            continue
+            continue #This continue statement causes any input prior to the error to be continue, so if you types 401F22, then a = 401
         
-        suc = s.studentScanEvent(a)
-        if not suc:
+        inDatabase = s.studentScanEvent(inputID)
+        if not inDatabase:
             name = raw_input("ID not in database; enter student name: ")
-            s.db.createStudent(a, name)
-            s.studentScanEvent(a)
+            s.db.createStudent(inputID, name)
+            error = s.studentScanEvent(inputID)
 
+    print "Error: studentScanEvent failed with inputID::" + inputID
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

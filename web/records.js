@@ -57,13 +57,14 @@ function _createRowCallback(data) {
         }
     }
 
-    r = "<tr id='" + studentID + "-row' class='" + color + "'>"
+    r = "<tr id='" + studentID + "-row'>"
     r = r + "<td id='" + studentID + "-name'></td>"
     r = r + "<td id='" + studentID + "-id'></td>"
-    r = r + "<td id='" + studentID + "-state'></td>"
-    r = r + "<td id='" + studentID + "-clength'></td>"
+    r = r + "<td id='" + studentID + "-state' class='" + color + "'></td>" //too lazy to completely rewrite styles
+    //r = r + "<td id='" + studentID + "-clength'></td>"
     r = r + "<td id='" + studentID + "-plength'></td>"
     r = r + "<td id='" + studentID + "-pdate'></td>"
+    r = r + "<td id='" + studentID + "-detail'><button style='background-color:lightblue;text-align:center;width:100px' id='" + studentID + "-btn'>Expand</button></td>" //button to be added
     r = $(r + "</tr>")
 
     if (updateTop) {
@@ -75,10 +76,18 @@ function _createRowCallback(data) {
     $("#" + studentID + "-name").text(data['name'])
     $("#" + studentID + "-id").text(data['id'])
     $("#" + studentID + "-state").text(state)
-    $("#" + studentID + "-clength").text(currentDuration)
+    //$("#" + studentID + "-clength").text(currentDuration)
     $("#" + studentID + "-plength").text(lastDuration)
     $("#" + studentID + "-pdate").text(lastDate)
     $("#" + studentID + "-row").hide().fadeIn(500)
+
+    document.getElementById(studentID + "-btn").addEventListener("click", function() {
+        if (this.innerHTML == 'Expand')
+            this.innerHTML = "Colapse";
+        else
+            this.innerHTML = "Expand";
+        console.log("YOU CLICKED::"+this.id);
+    });
 }
 
 function redrawRow(studentID) {
