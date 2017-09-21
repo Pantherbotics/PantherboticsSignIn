@@ -25,12 +25,11 @@ from database_json import Database
 
 
 class SessionTracker:
-    STATE = {}
-    SESSIONS = {}
+    STATE = {}     #Stores current state of all signed-in students. 
     def __init__(self):
         self.logger = logging.getLogger('session')
-        self.db = Database()
-        self.generateSessions()
+        self.db = Database()      
+        self.generateSessions()  #Run through last session logs and generate state information
         
         
     def studentScanEvent(self, studentID, eventTime = None):
@@ -53,6 +52,7 @@ class SessionTracker:
 
 
     def roundTime(self, dt=None, dateDelta=datetime.timedelta(minutes=1)):
+        #Rounds a datetime.datetime object to a datetime.timedelta object
         roundTo = dateDelta.total_seconds()
 
         if dt == None : dt = datetime.datetime.now()
@@ -63,66 +63,81 @@ class SessionTracker:
 
 
     def dateFromISO(self, datestr):
+        #parses a string for an ISO8601 date. returns a datetime object
         return datetime.datetime.strptime( datestr, "%Y-%m-%dT%H:%M:%S.%f" )
 
 
     def getCurrentState(self, studentID):
+        #gets the current state of a student ('signin' | 'signout' | 'timeout')
         if not studentID in self.STATE.keys(): return None
         else: return self.STATE[studentID]
 
 
     def rescanStudents(self):
-        for studentID in self.db.listStudents():
-            if studentID in self.STATE.keys(): continue
-            log = self.db.getEventsFor(studentID)
-            sess =self.db.getLatestSessionFor(studentID)
-            if len(log) == 0:
+        #Generates the state of students for the first time
+        for studentID in self.db.listStudents(): 
+            if studentID in self.STATE.keys(): continue    # Ignore students that already have a state
+            log = self.db.getEventsFor(studentID)          # Get the last few scan events for this student
+            sess =self.db.getLatestSessionFor(studentID)   # Get the latest Sesssion for this student
+
+            if len(log) == 0:                              #Set STATE timestamp to latest scan event, if any
                 tStamp = None
             else:
                 tStamp = log[-1]['timestamp']
 
-            if sess == None:
+            if sess == None:                               #Set STATE status to latest session status (scanout | timeout), if any
                 status = None
             else:
                 status = sess['status']
             
-            data = {int(studentID):{'status': status,
+            data = {int(studentID):{'status': status,      #Write the new state to self.STATE
                                     'timestamp': tStamp}}
             self.STATE.update(data)
 
 
     def generateSessions(self):
-        STATE = {}
-        uuidGroups = [[s['start_uuid'], s['end_uuid']] for s in self.db.SESSIONS]
-        parsedUUIDs =  [uuid for sublist in uuidGroups for uuid in sublist]
+        #Iterates through scan events, and generates Sessions from patterns in the scan events
+        STATE = {}  #NOTE: This is different from self.STATE!
+        uuidGroups = [[s['start_uuid'], s['end_uuid']] for s in self.db.SESSIONS]  # Iterate through existing Sessions, and gather all UUIDs
+        parsedUUIDs =  [uuid for sublist in uuidGroups for uuid in sublist]        # of already existing Sessions 
         
         for event in self.db.EVENTS:
-            eventUUID = event['uuid']
-            if eventUUID in parsedUUIDs: continue
-
-            registerTimeout = False
-            stID = event['id']
+            eventUUID = event['uuid']                  
+            if eventUUID in parsedUUIDs: continue    #Do not process any events that have already been processed
+                                                     # (UUID exists in another event)
+            registerTimeout = False      
+            stID = event['id']                             #Get studentID and timestamp of event
             timestamp = event['timestamp']
             sessionLength = 0
-            if stID in STATE.keys():
-                sessStatus = STATE[stID]['status']
-                sessUUID = STATE[stID]['uuid']
+            if stID in STATE.keys():                       #Student has already been processed (at least second time), we can use previous data
+                sessStatus = STATE[stID]['status'] 
+                sessUUID = STATE[stID]['uuid']             #get status, UUID, and timestamp of previous event
                 sessTimestamp = STATE[stID]['timestamp']
-                sessionLength = timestamp - sessTimestamp
-                if sessStatus == 'scanin' and sessionLength.total_seconds() >= MAX_SESSION_LENGTH:
-                    backtimestamp = sessTimestamp.replace(hour=DEF_SESSION_END_HRS, minute=DEF_SESSION_END_MIN, second=DEF_SESSION_END_SEC)
-                    registerTimeout = True
-                    self.db.createSession(stID, sessTimestamp, backtimestamp, 'timeout', sessUUID, None)
-                    STATE.update({stID:{'status': 'timeout', 'timestamp': backtimestamp}})
+                sessionLength = timestamp - sessTimestamp  #Get difference between timestamps (length of session if signout)
 
+                #NOTE: A Timeout Session is generated Before a scanin event (two generated in one loop)
+                #Student was previously scanned in and session is longer than acceptable: TIMEOUT
+                if sessStatus == 'scanin' and sessionLength.total_seconds() >= MAX_SESSION_LENGTH: 
+                    #TODO: Calculate timestamp of timeout session end in a better fashion. 
+                    backtimestamp = sessTimestamp.replace(hour=DEF_SESSION_END_HRS,   
+                                                          minute=DEF_SESSION_END_MIN, 
+                                                          second=DEF_SESSION_END_SEC)
+                    registerTimeout = True                                                                 #event is a timeout (just used for debug purpouses)
+                    self.db.createSession(stID, sessTimestamp, backtimestamp, 'timeout', sessUUID, None)   #Create a new Session on timeout
+                    STATE.update({stID:{'status': 'timeout', 'timestamp': backtimestamp}})                 #Update state with timeout info
+
+                #Student was previously scanned in and session is within acceptable size: SCANOUT
                 if sessStatus == 'scanin' and sessionLength.total_seconds() <= MAX_SESSION_LENGTH:
-                    self.db.createSession(stID, sessTimestamp, timestamp, 'scanout', sessUUID, eventUUID)
+                    self.db.createSession(stID, sessTimestamp, timestamp, 'scanout', sessUUID, eventUUID)  #Create a new Session on scanout
                     newStatus = 'scanout'
+
+                #Student was previously scanned out: SCANIN
                 elif sessStatus == 'scanout' or sessStatus == 'timeout':
                     newStatus = 'scanin'
             else:
                 newStatus = 'scanin'
                 sessionLength = 0
+
 
             if registerTimeout:
                 self.logger.debug('Student %-18s (%s) Forgot to sign out. length: %s', self.db.STUDENTS[stID]['name'], stID, backtimestamp - sessTimestamp)
@@ -132,13 +147,15 @@ class SessionTracker:
                 self.logger.debug('Student %-18s (%s) Scanned Out at %s length: %s', self.db.STUDENTS[stID]['name'], stID, timestamp.isoformat(), sessionLength)
                 
 
-            STATE.update({stID:{'status': newStatus, 'timestamp': timestamp, 'uuid': eventUUID}})
-        self.rescanStudents()
+            STATE.update({stID:{'status': newStatus, 'timestamp': timestamp, 'uuid': eventUUID}}) #Update state with status and timestamp
+
+        #Update self.STATE information from newly generate STATE info
+        self.rescanStudents()  
         for sID, data in STATE.iteritems():
             if data['status'] == 'scanin':
                 sessTimestamp = data['timestamp']
                 sessionLength = datetime.datetime.now() - sessTimestamp
-                if sessionLength.total_seconds() >= MAX_SESSION_LENGTH:
+                if sessionLength.total_seconds() >= MAX_SESSION_LENGTH: 
                     backtimestamp = sessTimestamp.replace(hour=DEF_SESSION_END_HRS, minute=DEF_SESSION_END_MIN, second=DEF_SESSION_END_SEC)
                     self.db.createSession(sID, sessTimestamp, backtimestamp, 'timeout', data['uuid'], None)
                     STATE.update({stID:{'status': 'timeout', 'timestamp': backtimestamp}})
