@@ -78,8 +78,6 @@ class CustomHTTPRequestHandler(BaseHTTPRequestHandler):
                     self.send_standard_response(200, 'text/plain')
                     self.wfile.write(json.dumps(students, indent=4))
                 
-                
-
             else:
                 self.path = self.path.split('?')[0]
                 f = open(WEB_DIR + self.path) #open requested file
@@ -89,6 +87,7 @@ class CustomHTTPRequestHandler(BaseHTTPRequestHandler):
                 f.close()
         except IOError:
             self.send_error(404, 'file not found: %s'%self.path)
+#END OF CLASS CustomHTTPRequestHandler()
 
 class StatusWebServer:
     def __init__(self):
@@ -101,6 +100,7 @@ class StatusWebServer:
         except KeyboardInterrupt:
             print " <--- Escape character entered, exiting..."
             pass
+#END OF CLASS StatusWebServer()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

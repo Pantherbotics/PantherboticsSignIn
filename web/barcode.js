@@ -3,9 +3,9 @@
 KEYBUFFER = []
 BARCODE_LENGTH = 6
 
-$(document).keypress(function(a) {
+$(document).keypress(function(keyPressed) {
 
-    if (a.which == 13) { //enter key pressed
+    if (keyPressed.which == 13) { //enter key pressed
         var code = KEYBUFFER.slice(-1 * (BARCODE_LENGTH)); //get last keys in buffer
         KEYBUFFER = []
         strbuf = ""
@@ -20,7 +20,7 @@ $(document).keypress(function(a) {
         $.getJSON("/api/barcode?id=" + strbuf, barcodeSubmitCallback)
 
     } else {
-        KEYBUFFER.push(a.which)
+        KEYBUFFER.push(keyPressed.which) //GitHub Issue #2
     }
 });
 
@@ -30,7 +30,6 @@ function openStudentModal(id) {
     $("#student-modal-body").text("ID: " + id)
     $('#student-modal').modal('show');
 }
-
 
 function barcodeSubmitCallback(a) {
     if (a['id'] == null) {
