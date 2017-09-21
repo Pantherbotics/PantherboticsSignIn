@@ -33,8 +33,8 @@ class SessionTracker:
 
     def studentScanEvent(self, studentID, eventTime = None):
         #process student login / logout. returns false if student is not in existing database
-        studentPresent = self.db.isStudentInDatabase(studentID)
-        if not studentPresent: return studentPresent
+        priorStudent = self.db.isStudentInDatabase(studentID) #the name "studentPresent" implies "is the student present at the club?" not "is the student included in the database?" changed name to "priorStudent" for clarity
+        if not priorStudent: return false #Exit?
 
         if eventTime == None:  eventTime = datetime.datetime.now()
         reTime = self.roundTime(eventTime, TIME_INCREMENTS) 
@@ -47,8 +47,7 @@ class SessionTracker:
             self.logger.info('Scan event %s %s', studentID, eventTime.isoformat())
             self.generateSessions()
 
-
-        return studentPresent
+        return true
 
     def roundTime(self, dt=None, dateDelta=datetime.timedelta(minutes=1)):
         roundTo = dateDelta.total_seconds()
@@ -149,22 +148,24 @@ class SessionTracker:
 
 def consoleTrack():
     s = SessionTracker()
-    while True:
+    error = false
+    while not error: #this will continue until student scan event fails AFTER adding a new student, which should never happen.
         try:
-            a = raw_input('#>')
-            a = int(a)
+            inputID = raw_input('#>')
+            inputID = int(inputID)
         except KeyboardInterrupt:
             exit(0)
         except ValueError:
             print "Error: Invalid Input (cannot convert to int)"
-            continue
+            continue #This continue statement causes any input prior to the error to be continue, so if you types 401F22, then a = 401
         
-        suc = s.studentScanEvent(a)
-        if not suc:
+        inDatabase = s.studentScanEvent(inputID)
+        if not inDatabase:
             name = raw_input("ID not in database; enter student name: ")
-            s.db.createStudent(a, name)
-            s.studentScanEvent(a)
+            s.db.createStudent(inputID, name)
+            error = s.studentScanEvent(inputID)
 
+   	print "Error: studentScanEvent failed with inputID::" + inputID
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
