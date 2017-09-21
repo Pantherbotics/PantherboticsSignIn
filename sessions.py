@@ -34,7 +34,7 @@ class SessionTracker:
     def studentScanEvent(self, studentID, eventTime = None):
         #process student login / logout. returns false if student is not in existing database
         priorStudent = self.db.isStudentInDatabase(studentID) #the name "studentPresent" implies "is the student present at the club?" not "is the student included in the database?" changed name to "priorStudent" for clarity
-        if not priorStudent: return false #Exit?
+        if not priorStudent: return False #Exit?
 
         if eventTime == None:  eventTime = datetime.datetime.now()
         reTime = self.roundTime(eventTime, TIME_INCREMENTS) 
@@ -47,7 +47,7 @@ class SessionTracker:
             self.logger.info('Scan event %s %s', studentID, eventTime.isoformat())
             self.generateSessions()
 
-        return true
+        return True
 
     def roundTime(self, dt=None, dateDelta=datetime.timedelta(minutes=1)):
         roundTo = dateDelta.total_seconds()
@@ -148,7 +148,7 @@ class SessionTracker:
 
 def consoleTrack():
     s = SessionTracker()
-    error = false
+    error = False
     while not error: #this will continue until student scan event fails AFTER adding a new student, which should never happen.
         try:
             inputID = raw_input('#>')
