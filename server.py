@@ -17,11 +17,16 @@ SessionInstance = None
 
 class CustomHTTPRequestHandler(BaseHTTPRequestHandler):
     mimeOBJ = MimeTypes()
+    logger = logging.getLogger('http')
 
     def send_standard_response(self, status, content_type):
         self.send_response(status)
         self.send_header('Content-type',content_type)
         self.end_headers()
+
+    def log_message(self, format, *args):
+        msg = format % args
+        self.logger.debug("[%s] %s",self.address_string(), msg)
 
     def do_GET(self):
         if SessionInstance == None: 

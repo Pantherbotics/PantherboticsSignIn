@@ -15,7 +15,7 @@ MAX_MIN = 0
 MAX_SEC = 0
 MAX_SESSION_LENGTH = ((MAX_HRS*60) + MAX_MIN)*60 + MAX_SEC #S57600 seconds = 16hrs
 
-#If a session length ends up exceeding MAX_SESSION_LENGTH, their session will be closed at this tome (hour)
+#If a session length ends up exceeding MAX_SESSION_LENGTH, their session will be closed at this time (hour)
 DEF_SESSION_END_HRS = 17
 DEF_SESSION_END_MIN = 0
 DEF_SESSION_END_SEC = 0
@@ -47,7 +47,7 @@ class SessionTracker:
 
         if studentID in self.STATE.keys():      
             self.db.appendEventLog(studentID, eventTime)
-            self.logger.info('Scan event %s %s', studentID, eventTime.isoformat())
+            self.logger.debug('Scan event %s %s', studentID, eventTime.isoformat())
             self.generateSessions()
 
         return True
