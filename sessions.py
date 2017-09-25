@@ -3,7 +3,7 @@
 #   sessions.py: Keeps track of login / logout sessions over time
 # Originally written by Roger Fachini
 
-import logging, datetime, pprint, time
+import logging, datetime, pprint, time, threading
 
 #--------Configuration--------
 # If > 1, sign-in / sign-out times will be rounded to this increment in minutes
@@ -30,7 +30,9 @@ class SessionTracker:
         self.logger = logging.getLogger('session')
         self.db = Database()      
         self.generateSessions()  #Run through last session logs and generate state information
-        
+        self.eventThread = threading.Thread(target=self.eventLoop, args=(()))
+        self.eventThread.daemon = True
+        self.eventThread.start()
         
     def studentScanEvent(self, studentID, eventTime = None):
         #process student login / logout. returns false if student is not in existing database
@@ -134,17 +136,23 @@ class SessionTracker:
                 #Student was previously scanned out: SCANIN
                 elif sessStatus == 'scanout' or sessStatus == 'timeout':
                     newStatus = 'scanin'
+            
             else:
                 newStatus = 'scanin'
                 sessionLength = 0
 
+            logDebug = not (stID in self.STATE.keys() and self.STATE[stID]['status'] == newStatus) #Events are registered but not printed to console (prevents console spam)
 
             if registerTimeout:
-                self.logger.debug('Student %-18s (%s) Forgot to sign out. length: %s', self.db.STUDENTS[stID]['name'], stID, backtimestamp - sessTimestamp)
             if newStatus == 'scanin': 
                 self.logger.debug('Student %-18s (%s) Scanned In  at %s length: %s', self.db.STUDENTS[stID]['name'], stID, timestamp.isoformat(), sessionLength)
             elif newStatus == 'scanout': 
-                self.logger.debug('Student %-18s (%s) Scanned Out at %s length: %s', self.db.STUDENTS[stID]['name'], stID, timestamp.isoformat(), sessionLength)
+                self.logger.info('Student %-18s (%s) Forgot to sign out. length: %s', self.db.STUDENTS[stID]['name'], stID, backtimestamp - sessTimestamp)
+
+            if newStatus == 'scanin' and logDebug: 
+                self.logger.info('Student %-18s (%s) Scanned In  at %s length: %s', self.db.STUDENTS[stID]['name'], stID, timestamp.isoformat(), sessionLength)
+            elif newStatus == 'scanout' and logDebug: 
+                self.logger.info('Student %-18s (%s) Scanned Out at %s length: %s', self.db.STUDENTS[stID]['name'], stID, timestamp.isoformat(), sessionLength)
                 
 
             STATE.update({stID:{'status': newStatus, 'timestamp': timestamp, 'uuid': eventUUID}}) #Update state with status and timestamp
@@ -165,9 +173,12 @@ class SessionTracker:
                 self.STATE[sID].update({'status':data['status'], 'timestamp': data['timestamp']})
 
 
-    def isCurrentTimeInSession(self):
-        now = datetime.datetime.now()
-        return now.hour >= SESSION_START_HOUR and now.hour <= SESSION_END_HOUR
+    def eventLoop(self):
+        while True:
+            time.sleep(60*5)
+            self.generateSessions()
+
+
 #END OF CLASS SessionTracker()
 
 def consoleTrack():
