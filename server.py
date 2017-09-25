@@ -13,23 +13,32 @@ from sessions import SessionTracker
 
 WEB_DIR = 'web/'
 
+SessionInstance = None
+
 class CustomHTTPRequestHandler(BaseHTTPRequestHandler):
     mimeOBJ = MimeTypes()
-    st = SessionTracker()
+    logger = logging.getLogger('http')
 
     def send_standard_response(self, status, content_type):
         self.send_response(status)
         self.send_header('Content-type',content_type)
         self.end_headers()
 
+    def log_message(self, format, *args):
+        msg = format % args
+        self.logger.debug("[%s] %s",self.address_string(), msg)
+
     def do_GET(self):
+        if SessionInstance == None: 
+            self.send_error(500, "Session Instance is not Initalized!")
+            return
         try:
             if self.path[-1] == '/' and not os.path.isfile(WEB_DIR + self.path):
                 self.path += 'index.html'
             if '/api/barcode?id=' in self.path: 
                 try:
                     studentID = cgi.parse_qs(self.path.split('?')[1])['id']
-                    inDB = self.st.studentScanEvent(int(studentID[0]))
+                    inDB = SessionInstance.studentScanEvent(int(studentID[0]))
                     self.send_standard_response(200, 'text/plain')
                 except KeyError as er:
                     logging.exception(er)
@@ -43,7 +52,7 @@ class CustomHTTPRequestHandler(BaseHTTPRequestHandler):
                     c = cgi.parse_qs(self.path.split('?')[1])
                     name = c['name'][0]
                     id = c['id'][0]
-                    self.st.db.createStudent(id, name)
+                    SessionInstance.db.createStudent(id, name)
                     self.send_standard_response(200, 'text/plain')
                     self.wfile.write('OK')
                 except KeyError:
@@ -55,14 +64,14 @@ class CustomHTTPRequestHandler(BaseHTTPRequestHandler):
                     studentID = cgi.parse_qs(self.path.split('?')[1])['id']
                     studentID = int(studentID[0])
 
-                    name = self.st.db.getNameFor(studentID)
-                    lastSession = self.st.db.getLatestSessionFor(studentID)
+                    name = SessionInstance.db.getNameFor(studentID)
+                    lastSession = SessionInstance.db.getLatestSessionFor(studentID)
                     if lastSession and 'start_time' in lastSession.keys():
                         lastSession['start_time'] = lastSession['start_time'].isoformat()
                     if lastSession and 'end_time' in lastSession.keys():
                         lastSession['end_time'] = lastSession['end_time'].isoformat()
                     
-                    state = self.st.getCurrentState(studentID)
+                    state = SessionInstance.getCurrentState(studentID)
                     if state and 'timestamp' in state.keys() and not type(state['timestamp']) == str and not state['timestamp'] == None:
                         state['timestamp'] = state['timestamp'].isoformat()
                     data = {'name': name, 'id': studentID, 'lastSession': lastSession, 'state': state}
@@ -74,7 +83,7 @@ class CustomHTTPRequestHandler(BaseHTTPRequestHandler):
                     self.wfile.write("ERROR")
 
             elif '/api/liststudents' in self.path: 
-                    students = self.st.db.listStudents()
+                    students = SessionInstance.db.listStudents()
                     self.send_standard_response(200, 'text/plain')
                     self.wfile.write(json.dumps(students, indent=4))
                 
@@ -94,7 +103,7 @@ class StatusWebServer:
         self.logger = logging.getLogger('http')
         addr = ('', 8080)
         httpd = HTTPServer(addr, CustomHTTPRequestHandler)
-        self.logger.debug('Serving HTTP requests on %s:%s',addr[0],addr[1])
+        self.logger.info('Serving HTTP requests on %s:%s',addr[0],addr[1])
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
@@ -103,5 +112,6 @@ class StatusWebServer:
 #END OF CLASS StatusWebServer()
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
+    SessionInstance = SessionTracker()
     StatusWebServer()
