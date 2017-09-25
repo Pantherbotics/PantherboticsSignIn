@@ -98,7 +98,7 @@ class StatusWebServer:
         self.logger = logging.getLogger('http')
         addr = ('', 8080)
         httpd = HTTPServer(addr, CustomHTTPRequestHandler)
-        self.logger.debug('Serving HTTP requests on %s:%s',addr[0],addr[1])
+        self.logger.info('Serving HTTP requests on %s:%s',addr[0],addr[1])
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
@@ -107,6 +107,6 @@ class StatusWebServer:
 #END OF CLASS StatusWebServer()
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     SessionInstance = SessionTracker()
     StatusWebServer()

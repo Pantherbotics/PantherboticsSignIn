@@ -144,9 +144,6 @@ class SessionTracker:
             logDebug = not (stID in self.STATE.keys() and self.STATE[stID]['status'] == newStatus) #Events are registered but not printed to console (prevents console spam)
 
             if registerTimeout:
-            if newStatus == 'scanin': 
-                self.logger.debug('Student %-18s (%s) Scanned In  at %s length: %s', self.db.STUDENTS[stID]['name'], stID, timestamp.isoformat(), sessionLength)
-            elif newStatus == 'scanout': 
                 self.logger.info('Student %-18s (%s) Forgot to sign out. length: %s', self.db.STUDENTS[stID]['name'], stID, backtimestamp - sessTimestamp)
 
             if newStatus == 'scanin' and logDebug: 
