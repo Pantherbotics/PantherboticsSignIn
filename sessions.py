@@ -152,7 +152,7 @@ class SessionTracker:
                 self.logger.info('Student %-18s (%s) Scanned Out at %s length: %s', self.db.STUDENTS[stID]['name'], stID, timestamp.isoformat(), sessionLength)
                 
 
-            STATE.update({stID:{'status': newStatus, 'timestamp': timestamp, 'uuid': eventUUID}}) #Update state with status and timestamp
+            STATE.update() #Update state with status and timestamp
 
         #Update self.STATE information from newly generate STATE info
         self.rescanStudents()  
@@ -175,7 +175,17 @@ class SessionTracker:
             time.sleep(60*5)
             self.generateSessions()
 
+    def _setEventOfType(self, type, studentID, timestamp, uuid, debug=True):
+        if type == 'scanin':
+            self.logger.info('Student %-18s (%s) Forgot to sign out.', self.db.STUDENTS[studentID]['name'], studentID)
 
+        elif type == 'scanin': 
+            self.logger.info('Student %-18s (%s) Scanned In  at %s', self.db.STUDENTS[studentID]['name'], studentID, timestamp.isoformat())
+
+        elif type == 'scanout': 
+            self.logger.info('Student %-18s (%s) Scanned Out at %s', self.db.STUDENTS[studentID]['name'], studentID, timestamp.isoformat())
+        OUT = {studentID:{'status': type, 'timestamp': timestamp, 'uuid': eventUUID}}
+=
 #END OF CLASS SessionTracker()
 
 def consoleTrack():
