@@ -1,0 +1,51 @@
+<html>
+
+<head>
+    <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
+    <script src="static/js/jquery-3.2.1.min.js"></script>
+    <script src="static/js/popper.min.js"></script>
+    <script src="static/js/bootstrap.min.js"></script>
+    <link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon">
+
+    <script src="static/clock.js"></script>
+    <script src="static/barcode.js"></script>
+
+    {% if title %}
+    <title>{{ title }} - Pantherbotics Sign-in</title>
+    {% else %}
+    <title>Pantherbotics Sign-in</title>
+    {% endif %}
+</head>
+
+<body>
+    <hr> {% block content %}{% endblock %}
+
+    <div id="student-modal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Student not in database</h4>
+                </div>
+                <div class="modal-body">
+                    <p id="student-modal-body"></p>
+                    <p>
+                        This student ID number was not found in the database. Please enter the first and last name of the new student, and click 'Submit'. If this entry was made in error, please press 'Cancel'
+                    </p>
+
+                    <input id="modalTextbox" type="text" placeholder="Student name (first and last)" size="60">
+
+                </div>
+                <div class="modal-footer">
+                    <button id="modalSubmit" onclick="studentModalSubmitCallback()" type="button" class="btn btn-success">Submit</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,37 @@
+{% extends "base.html" %} {% block content %}
+<div>
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="table-responsive">
+                <table id="status-table" class="table table-striped table-bordered table-sm">
+                    <tr id="status-table-header">
+                        <th>Full Name</th>
+                        <th>ID Number</th>
+                        <th>Status</th>
+                        <th>Current Session Length</th>
+                        <th>Last Session Length</th>
+                        <th>Last date of Attendance</th>
+                    </tr>
+
+
+                    {% for session in sessions %} {% if session.status == 'timeout'%}
+                    <tr id='{{session.id}}-row' class='table-warning'>
+                        {% elif session.status == '' %}
+                        <tr id='{{session.id}}-row' class=''>
+                            {%endif%}
+                            <td>{{names[session.id]}}</td>
+                            <td>{{session.id}}</td>
+                            <td>{{session.status}}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{{students}} {{sessions}} {% endblock %}
